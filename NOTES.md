@@ -1,0 +1,8 @@
+Mnemonic: \
+again cable air agree veteran march surface dragon behind isolate just wreck
+
+Seed (empty salt): \
+f3f1ff73a93aa5b2fa5db7bdabc184e26bd5120fac3345d89133b3e027982f3d5a7b02704b7f03142873bb264498676798dbefa86ff63f18f14d12e61d114be4
+
+Seed ("secret" as salt): \
+d6ef686e10d0cd2bc3b4ca2e09e82326d93fa812ae8d1963d371b28264141b7ed5ec0577eba607ace0811433cf7e9c61a471c4bf0cc4526656471ad071c5e88b
