@@ -1,260 +1,404 @@
-# dashhd.js
+# [dashhd-cli](https://github.com/dashhive/dashhd-cli)
 
-Browser, Node, Bundler, and CLI compatible Dash HD Wallet tools
+Commandline utility to traverse HD Keys from HD Wallet Seed and Extended (xprv,
+xpub) Key Paths. \
+(compatible with the [Hierarchical Deterministic Keys (BIP-44)][bip-44] and [BIP-32][bip-32]
+specs)
+
+> A fully-functional, production-ready reference implementation of Dash HD -
+> suitable for learning DASH specs and protocols, and porting to other
+> languages.
+
+## Overview: Seeds => XKeys => Keys
+
+```sh
+dashhd <./seed-or-key> [start-hdpath-or-index] [end]
+```
+
+### Seed => Extended Key
+
+```sh
+dashhd ./seed.hex   "m/44'/5'/0'/0"
+```
+
+```text
+# XPrv
+xprvA2L7qar7dyJNhxnE47gK5J6cc1oEHQuAk8WrZLnLeHTtnkeyP4w6Eo6Tt65trtdkTRtx8opazGnLbpWrkhzNaL6ZsgG3sQmc2yS8AxoMjfZ
+
+# XPub
+xpub6FKUF6P1ULrfvSrhA9DKSS3MA3digsd27MSTMjBxCczsfYz7vcFLnbQwjP9CsAfEJsnD4UwtbU43iZaibv4vnzQNZmQAVcufN4r3pva8kTz
+```
+
+### Extended Key to Address Key
+
+```sh
+dashhd ./0-0-0.xprv 0
+```
+
+```text
+# WIF
+XCGKuZcKDjNhx8DaNKK4xwMMNzspaoToT6CafJAbBfQTi57buhLK
+
+# Address
+XrZJJfEKRNobcuwWKTD3bDu8ou7XSWPbc9
+```
 
 # Table of Contents
 
-- CLI utils
-  - dash-mnemonic-generate
-  - dash-mnemonic-to-addrs (salted or plain)
-  - dash-mnemonic-to-seed
-  - dash-mnemonic-to-wifs
-  - dash-mnemonic-to-xprv
-  - dash-mnemonic-to-xpub
-  - dash-seed-to-xkeys (extended public / private keys)
-  - dash-seed-to-wif
-  - dash-seed-to-wifs
-  - dash-qr (converts XPubs and PayAddrs, and XPrvs and WIFs to QR Codes)
-  - dash-xprv-to-wif
-  - dash-xprv-to-wifs
-  - dash-xpub-to-addr
-  - dash-xpub-to-addrs
-- Test Fixtures
-  - Mnemonic
-  - Salted Seed (password)
-  - Plain Seed
+- [Install](#install)
+- [Usage](#usage)
+  - [How HD Paths Work](#how-hd-paths-work)
+  - [Seed to XPrv / XPub](#wallet-seed-to-extended-keys)
+  - [Seed to WIF / Addr](#wallet-seed-to-address-keys)
+  - [XPrv to WIF / Addr](#extended-keys-to-address-keys)
+  - [XPub to Addr](#extended-keys-to-address-keys)
+  - [Working with Ranges](#working-with-ranges)
+- [Test Fixtures](#fixtures)
+  - Recovery Phrases
+  - Seeds
+  - XPrvs, XPubs
+  - WIFs, Addrs
+- [Glossary of Terms](#glossary)
+- [License](#license) (MIT)
 
-# CLI
-
-## Install
+# Install
 
 ```sh
 npm install --location=global dashhd
+dashhd ./seed.hex "0'/0"
 ```
 
 Or, use without installing:
 
 ```sh
-npx -p dashd dash-mnemonic-generate
+npx -p dashhd dashhd ./seed.hex "0'/0"
 ```
 
-## Usages
+# Usage
+
+**Note**: Convert _Recovery Phrases_ to _Seeds_ with
+[`dashphrase`](https://github.com/dashhive/dashphrase.js).
+
+Also, **all example values** below are derived from the _Zoomonic Seed_:
+
+`./seed.hex`:
+
+```text
+ac27495480225222079d7be181583751e86f571027b0497b5b5d11218e0a8a13332572917f0f8e5a589620c6f15b11c61dee327651a14c34e18231052e48c069
+```
+
+## How HD Paths Work
+
+You can use either the full HD Path (required for coins other than DASH), or
+abbreviate, starting with the _HD Account_:
+
+```text
+m/44'/5'/0'/0    - absolute Extended Key path
+         0'/0    - relavite Extended Key path (DASH only)
+
+m/44'/5'/0'/0/0  - absolute Address Key path
+         0'/0/0  - relative Address Key path (DASH only)
+```
+
+From [Dash HD: HD Path](https://github.com/dashhive/DashHD.js#hd-path):
+
+> The path that defines an HD Key - typically of the BIP-44 variety:
+>
+> - a _Root_ (master), ex: `m` (depth 0, the Wallet Key, straight from the seed)
+> - an _Coin Key_, ex: `m/44'/5'` (depth 2)
+> - an _Account_, ex: `m/44'/5'/0'` (depth 3)
+> - an _X Key_ (_XPrv_ or _XPub_), ex: `m/44'/5'/0'/0` (depth 4, a.k.a. _Use_)
+> - an _Address Key_, ex: `m/44'/5'/0'/0/0` (depth 5, the end)
+> - `'` is used for "hardened" (parent) key segments, \
+>   but not for "public" (shareable) child key segments
+>
+> In general:
+>
+> ```js
+> m/<purpose>'/<coin-type>'/<account>'/<use>/<index>
+> ```
+>
+> For DASH:
+>
+> ```js
+> m/44'/5'/<account>'/<use>/<index>
+> ```
+>
+> (because we always use BIP-44 and our coin type is 5)
+
+See also:
+
+- [Dash HD: Glossary](https://github.com/dashhive/DashHD.js#glossary)
+- [Dash HD: Key Types](https://github.com/dashhive/DashHD.js#key-types)
+- [Dash Tools: Glossary](https://github.com/dashhive/dash-tools#glossary)
+
+## Wallet Seed to Extended Keys
+
+1. Convert your _Recovery Phrase_ to a _Seed_ with
+   [DashPhrase](https://github.com/dashhive/dashphrase-cli)
+2. Derive Extended Keys for Account at index 2:
+   ```sh
+   # dashhd ./seed.hex       "/<account>'/<use>"
+   dashhd ./seed.hex         "/2'/0"
+   ```
+   (the _Use_ index will be `0` for most common use cases)
+3. The output will have an _XPrv_ and _XPub_, like this:
+   ```sh
+   # starts with "xprv" (111 characters)
+   xprvA1t6Pgks9siC1M6QTqstaDpK7GqJfiDZq4tpD6eKVyVf4iAb3LViw6jk1mp2XUawhpoYCCwrQphPpS9V36VhDLxP6QK5FGx5wR6iF8xMYHc
+   # starts with "xpub" (111 characters)
+   xpub6EsSoCHkzFGVDqAsZsQtwMm3fJfo5AwRCHpR1V3w4K2dwWVjasoyUu4Ds2XtjE9QY83pdNBtduc17UKQV46iQmAJFQ7NywC4ggdEi1Ki76a
+   ```
+
+More examples:
 
 ```sh
-./bin/mnemonic-generate.js
+# Absolute HD Path
+dashhd ./seed.hex "m/44'/5'/2'/0"
 
-# zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong
-# again cable air agree veteran march surface dragon behind isolate just wreck
+# Absolute HD Path with Relative Range
+dashhd ./seed.hex "m/44'/5'/0'/0" "5'/0"
+
+# Same as above, but with relative HD Path
+dashhd ./seed.hex          "0'/0" "5'/0"
+```
+
+## Wallet Seed to Address Keys
+
+1. Convert your _Recovery Phrase_ to a _Seed_ with
+   [DashPhrase](https://github.com/dashhive/dashphrase-cli)
+2. Derive Address Keys for Address 3 of Account 2 (0-indexed):
+   ```sh
+   # dashhd ./seed.hex       "/<account>'/<use>/<index>"
+   dashhd ./seed.hex         "/2'/0/3"
+   ```
+   (the _Use_ index will be `0` for most common use cases)
+3. The output will have a _WIF_ (longer) and _Address_, like this:
+   ```sh
+   # WIF (51 characters)
+   HjSuSQ7F2dVqmzB4BLzEaLNrptzzVUBCXjo76us7AWQY954CWe3
+   # Address (34 characters)
+   XyvDv4Jz3cfXrbTvecymTe2MmXryokCEHi
+   ```
+
+More examples:
+
+```sh
+# Absolute HD Path
+dashhd ./seed.hex "m/44'/5'/2'/0/3"
+
+# Absolute HD Path with Relative Address Ranges
+dashhd ./seed.hex "m/44'/5'/2'/0/3" "2'/0/5"
+
+# Absolute HD Path with Relative Account + Address Ranges
+dashhd ./seed.hex "m/44'/5'/0'/0/0" "2'/0/3"
+
+# Same as above, but with relative HD Path
+dashhd ./seed.hex          "2'/0/3" "2'/0/5"
+dashhd ./seed.hex          "0'/0/0" "2'/0/3"
+```
+
+## Extended Keys to Address Keys
+
+Extended Keys come in a pair:
+
+- the person **receiving payment** generates the pair \
+  (they keep the _XPrv_ to themselves)
+- the person **paying** accepts the _XPub_ from the other \
+  (each payment will go incrementally to the next unused address)
+
+### Pay a Contact
+
+If _Alice_ wants to pay _Bob_, and the next unused is at index 3:
+
+```sh
+# dashhd ./payee.xpub <index>
+dashhd   ./bob.xpub   3
+```
+
+```text
+# Address
+XyvDv4Jz3cfXrbTvecymTe2MmXryokCEHi
+```
+
+### Check & Spend a Payment
+
+_Bob_ must use the _WIF_ (first, longer) to spend a a payment. \
+Before doing so he can check teh account with the _Address_ (shorter).
+
+```sh
+# dashhd ./payer.xprv <index>
+dashhd   ./alice.xprv 3
 ```
 
 ```sh
-./bin/mnemonic-to-addrs.js
-# Usage: mnemonic-to-addrs <./mnemonic.txt> [./passphrase.txt] [startPath] [endPath]
-
-# m/44'/5'/0'/0/0:
-# XjxyR1gve94LuKqkMLEeqJbEVM5B5q1ZSx
+# WIF
+HjSuSQ7F2dVqmzB4BLzEaLNrptzzVUBCXjo76us7AWQY954CWe3
+# Address
+XyvDv4Jz3cfXrbTvecymTe2MmXryokCEHi
 ```
+
+## Working with Ranges
+
+You can specify a range to generate multiple Extended Keys or Address Keys at
+once.
+
+### Extended Key Ranges
 
 ```sh
-./bin/mnemonic-to-seed.js
-# Usage: mnemonic-to-seed <./mnemonic.txt> [./passphrase.txt]
+# Absolute HD Path
+dashhd ./seed.hex "m/44'/5'/0'/0" "m/44'/5'/2'/0"
 
-# f3f1ff73a93aa5b2fa5db7bdabc184e26bd5120fac3345d89133b3e027982f3d5a7b02704b7f03142873bb264498676798dbefa86ff63f18f14d12e61d114be4
+# Absolute HD Path with Relative Range
+dashhd ./seed.hex "m/44'/5'/0'/0"          "2'/0"
+
+# Same as above, but with relative HD Path
+dashhd ./seed.hex          "0'/0"          "2'/0"
 ```
+
+The output will include the HD Path for easy identification:
+
+```text
+m/44'/5'/2'/0:
+xprvA1t6Pgks9siC1M6QTqstaDpK7GqJfiDZq4tpD6eKVyVf4iAb3LViw6jk1mp2XUawhpoYCCwrQphPpS9V36VhDLxP6QK5FGx5wR6iF8xMYHc
+xpub6EsSoCHkzFGVDqAsZsQtwMm3fJfo5AwRCHpR1V3w4K2dwWVjasoyUu4Ds2XtjE9QY83pdNBtduc17UKQV46iQmAJFQ7NywC4ggdEi1Ki76a
+```
+
+### Address Key Ranges
 
 ```sh
-./bin/mnemonic-to-wifs.js
-# Usage: mnemonic-to-wifs <./mnemonic.txt> [./passphrase.txt] [startPath] [endPath]
+# Absolute HD Path
+dashhd ./seed.hex "m/44'/5'/2'/0/0" "m/44'/5'/2'/0/5"
 
-# m/44'/5'/0'/0/0: XKHiWYkmDkNnWGP756UCGcuZ21mHGeYdWeCBBHCBGZaf3NYw1SAz
-#                  XjxyR1gve94LuKqkMLEeqJbEVM5B5q1ZSx
+# Absolute HD Path with Relative Address Ranges
+dashhd ./seed.hex "m/44'/5'/2'/0/2"          "2'/0/5"
+
+# Absolute HD Path with Relative Account + Address Ranges
+dashhd ./seed.hex          "0'/0/0"          "2'/0/2"
+
+# Same as above, but with relative HD Path
+dashhd ./seed.hex          "2'/0/2"          "2'/0/5"
+dashhd ./seed.hex          "0'/0/0"          "2'/0/2"
 ```
 
-```sh
-./bin/mnemonic-to-xprv.js
-# Usage: mnemonic-to-xprv <./mnemonic.txt> [./passphrase.txt] [hdpath]
+The output will include the HD Path for easy identification:
 
-# xprvA1WUDWFxdE5UGW1XNTnkZnd3K6bdidZBTtzvtEQziBpS3N8tajC4QKyRLmas7DK4HXK76wSXgMV1uV6RbKyM5f4uu1VmguEhAqvzQwr2mrC
-# xpub6EVpd1nrTbdmUz5zUVKkvvZms8S886H2q7vXgcpcGXMQvAU38GWJx8HuC28Bm8Cizq7dHJvL6armkvL7vvxRpxUxAmpVQF6s8aq5BRBCMrD
-```
-
-```sh
-./bin/mnemonic-to-xpub.js
-# Usage: mnemonic-to-xpub <./mnemonic.txt> [./passphrase.txt] [hdpath]
-
-# xpub6EVpd1nrTbdmUz5zUVKkvvZms8S886H2q7vXgcpcGXMQvAU38GWJx8HuC28Bm8Cizq7dHJvL6armkvL7vvxRpxUxAmpVQF6s8aq5BRBCMrD
-```
-
-```sh
-./bin/seed-to-xkeys.js
-# Usage: seed-to-wif <./seed.hex> [account] [direction]
-
-# xprvA1uHCfBAez3GCjbyU8UWQitSaZ3RUUy8eft7mf8rnH5z6WCQJ6ehHTNAPRes6k6cwimXjhEHoxka79uoQ2Kdyx7BxbGYKGSnkdjfdjXfvjr
-# xpub6EtdcAi4VMbZRDgSaA1WmrqB8asuswgz1toia3YULccxyJXYqdxwqFgeEexVxr8ytJPHZYTrhbYJjqaFumih45awabyaHwUmCvXbGf7sujG
-```
-
-```sh
-./bin/seed-to-wif.js
-# Usage: seed-to-wif <./seed.hex> [account] [direction] [index]
-```
-
-```sh
-./bin/xprv-to-wif.js
-# Usage: xprv-to-wif <./xprv.txt> [index]
-```
-
-```txt
-XD3sNsdXjXvsnGtcbiqj3SCVdGHyHCRWFDaCAhWotxVfudSN4iRt
-```
-
-```sh
-./bin/xpub-to-addr.js
-# Usage: xpub-to-addr <./xpub.txt> [index]
-```
-
-```txt
-XnRtALP7ns8stH6o79RQTiWGeW2SQeetxL
-```
-
-```sh
-./bin/seed-to-wifs.js
-# Usage:   seed-to-wif <./seed.hex> [fromPath] [toPath]
-# Example: seed-to-wif  ./seed.hex   "0'/0/0"    "1'/0/1"
-```
-
-```sh
-./bin/xprv-to-wifs.js
-# Usage:   xprv-to-wif <./xprv.txt> [fromPath] [toPath]
-# Example: xprv-to-wif  ./xprv.txt   "0'/0/0"    "1'/0/1"
-```
-
-```txt
-m/44'/5'/0'/0/0: XKHiWYkmDkNnWGP756UCGcuZ21mHGeYdWeCBBHCBGZaf3NYw1SAz
-                 XjxyR1gve94LuKqkMLEeqJbEVM5B5q1ZSx
-m/44'/5'/0'/0/1: XCsy8Qw1fLH7C1UxLjBfTfLpn8DMRK1TMNNE2a5J1F4TyE5UApcK
-                 XxRrwh1xBWig9rfLyiy494u2vj6YXQMsH7
-
-m/44'/5'/1'/0/0: XEWDJiCKuSaNHUoYFaGiTv1QG3p49xc4vx6cbS19CHZFe1TpwvJF
-                 XrX7Ph3rXV9kyzQfcDteCf14xvm8nM5Mmg
-m/44'/5'/1'/0/1: XHTyj295ekRT4UqDnYd5zdHwLZ5iJdQnN8DjH9CQqPxFVipJqYns
-                 XxTRzgDwnED8cPmrnCRRwpnnT3v5VL3KcE
-```
-
-```sh
-./bin/xpub-to-addrs.js
-# Usage:   xpub-to-addrs <./xpub.txt> [startIndex] [endIndex]
-# Example: xpub-to-addrs  ./xpub.txt  0            1
-```
-
-```txt
-XjxyR1gve94LuKqkMLEeqJbEVM5B5q1ZSx
-XxRrwh1xBWig9rfLyiy494u2vj6YXQMsH7
+```text
+m/44'/5'/2'/0/3:
+XHjSuSQ7F2dVqmzB4BLzEaLNrptzzVUBCXjo76us7AWQY954CWe3
+XyvDv4Jz3cfXrbTvecymTe2MmXryokCEHi
 ```
 
 # Fixtures
 
-For the purpose of testing against known-good values, we provide these fixtures.
+These are for testing and debugging HD Key libraries and HD wallets.
 
-## Mnemonic
+Libraries should support Recovery Phrase "secret"s - also known as _salt_ or
+(misnomer) _password_.
 
-This mnemonic can be used to generate any number of seeds, meaning any number of
-"password-protected" wallets.
+However, in practice, most wallets don't ask the user and simply put an empty
+string as the secret.
 
-```txt
-again cable air agree veteran march surface dragon behind isolate just wreck
+Also, in practice, the XPrv and XPub _Use_ is always designated as Receiving
+(External), not Change (internal).
+
+For completeness, we offer fixtures for all of those features below.
+
+## Catmonic (empty secret)
+
+Recovery Phrase:
+
+```text
+cat swing flag economy stadium alone churn speed unique patch report train
 ```
 
-**Misnomer Alert**: this is obviously a _passphrase_, but early on the term
-_passphrase_ was mistakenly used to describe a _salt_, so we're stuck calling
-this "mnemonic".
+Secret (Salt):
 
-## Seed, xprv, WIFs, & Addrs (Empty Password)
+` ` (empty string)
 
-If the mnemonic is used _without_ a "password" (or "secret"), it will produce
-this HD Wallet "seed":
+XPrvs, XPubs, WIFs, and Addresses:
 
-```txt
-f3f1ff73a93aa5b2fa5db7bdabc184e26bd5120fac3345d89133b3e027982f3d5a7b02704b7f03142873bb264498676798dbefa86ff63f18f14d12e61d114be4
+See [./examples/](./examples/) and [./FIXTURES.md](./FIXTURES.md).
+
+## Zoomonic (with secret salt)
+
+Recovery Phrase:
+
+```text
+zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong
 ```
 
-The `xprv` and `xpub` for the HD prefixes `m/44'/5'/0'/0` and `m/44'/5'/2'/1`
-are:
+Secret (Salt):
 
-```sh
-# m/44'/5'/0'/0
-xprvA1uHCfBAez3GCjbyU8UWQitSaZ3RUUy8eft7mf8rnH5z6WCQJ6ehHTNAPRes6k6cwimXjhEHoxka79uoQ2Kdyx7BxbGYKGSnkdjfdjXfvjr
-
-xpub6EtdcAi4VMbZRDgSaA1WmrqB8asuswgz1toia3YULccxyJXYqdxwqFgeEexVxr8ytJPHZYTrhbYJjqaFumih45awabyaHwUmCvXbGf7sujG
+```text
+TREZOR
 ```
 
-```sh
-# m/44'/5'/2'/1/2
-xprvA1zEQq1FvKbQkXosnKgsBTrtk1K6iEfdUSLnHgf7ejLYU2NAU9mK5gqAYNP34ykNMfVkY4emcdTjuaqUmz2J7Hohupn9VFRhQrV6CWpmKaZ
+XPrvs, XPubs, WIFs, and Addresses:
 
-xpub6EyapLY9kh9hy1tLtMDsYbodJ39b7hPUqfGP654jD4sXLphK1h5ZdV9ePgapU2jMrVBy4sXUW4CSxG3aXdDgJGTsMQFy8D51TRSdjcjQxpV
+```text
+m/44'/5'/0'/0   XPrv & XPub
+
+                xprvA2L7qar7dyJNhxnE47gK5J6cc1oEHQuAk8WrZLnLeHTtnkeyP4w6Eo
+                    6Tt65trtdkTRtx8opazGnLbpWrkhzNaL6ZsgG3sQmc2yS8AxoMjfZ
+                xpub6FKUF6P1ULrfvSrhA9DKSS3MA3digsd27MSTMjBxCczsfYz7vcFLnb
+                    QwjP9CsAfEJsnD4UwtbU43iZaibv4vnzQNZmQAVcufN4r3pva8kTz
+
+m/44'/5'/0'/0/0 WIF & Address
+
+                XCGKuZcKDjNhx8DaNKK4xwMMNzspaoToT6CafJAbBfQTi57buhLK
+                XrZJJfEKRNobcuwWKTD3bDu8ou7XSWPbc9
 ```
 
-Given the HD paths `m/44'/5'/0'/0/0` and `m/44'/5'/2'/1/2`, that seed will
-produce these WIFs (Private Keys) and Pay Addresses (PubKey Hashes).
+```text
+m/44'/5'/1'/1   XPrv & XPub
 
-```txt
-                 (account 0, external/receiving, address 0)
-m/44'/5'/0'/0/0: XD3sNsdXjXvsnGtcbiqj3SCVdGHyHCRWFDaCAhWotxVfudSN4iRt (WIF)
-                 XnRtALP7ns8stH6o79RQTiWGeW2SQeetxL                   (Addr)
-m/44'/5'/0'/0/1: XJ8RCLHTg55mBbvv5mF5Ja3DikzBYWxHn5DvKyJoFm2cufBdUSc2
-                 XeGtfXhcgeyLS2EtAnrkbEKNmVVDupZV6p
+                xprvA2ACWaqwADRtbkLsM6oQHzeWtqZVviBmKMKNRBFcwKGGRBgWHNeoZS
+                    KzduFMFkqvNsV5LaqRT9XRibzgSAweAAsfMF35PWy6beK3aL1BwTU
+                xpub6F9Yv6NpzazBpERLT8LQf8bFSsPzLAucgaEyDZfEVeoFHz1epuy47E
+                    eUVCRTNVToM1zgFZMxiGs2AFc9cNqZE2UVwJod2zPkG7W4ZGRuwJJ
 
-                 (account 2, internal/change, address 2)
-m/44'/5'/2'/1/2: XJDdTJ1WigKiUdsvofPGmMCHoPd4kpWKD1yGrigJXuwqcxoLUn4W (WIF)
-                 XoMEcuxW4Ki1SXduDjQUdntSYU4PWzhqTC                   (Addr)
+m/44'/5'/1'/1/1 WIF & Address
+                XF9murLtNpJaZXbwMxqJ6BhigEtu9NxfBCJDBokCJcqFkYkz3itz
+                XueHW2ELMxoXzXcaHMxmwVWhcADE1W5s8c
 ```
 
-## Seed, xprv, WIFs, & Addrs (With Password)
+```text
+m/44'/5'/2'/0   XPrv & XPub
 
-If the mnemonic is used with the "password" (or "secret") `supersecret123` or
-`TREZOR`, it will produce this HD Wallet seed:
+                xprvA1t6Pgks9siC1M6QTqstaDpK7GqJfiDZq4tpD6eKVyVf4iAb3LViw6
+                    jk1mp2XUawhpoYCCwrQphPpS9V36VhDLxP6QK5FGx5wR6iF8xMYHc
+                xpub6EsSoCHkzFGVDqAsZsQtwMm3fJfo5AwRCHpR1V3w4K2dwWVjasoyUu
+                    4Ds2XtjE9QY83pdNBtduc17UKQV46iQmAJFQ7NywC4ggdEi1Ki76a
 
-Secret: `supersecret123`
+m/44'/5'/2'/0/3 WIF & Address
 
-```txt
-6f9c7acc33e3690d734de56619936d7dce1d3aadf624cdbb09e50a3c978c13234f59112e791910d0cd94c483113dcab0a637cb7f7b85fa78e7af6464e3967713
+                XHjSuSQ7F2dVqmzB4BLzEaLNrptzzVUBCXjo76us7AWQY954CWe3
+                XyvDv4Jz3cfXrbTvecymTe2MmXryokCEHi
+
+m/44'/5'/2'/0/5 WIF & Address
+
+                XCcWUUGUkCeYLteuYmocSy9UbSwbCZD2nNCxXW5DKSN3YKHEE6xx
+                XgBR52CgtFEdvrbN7YdwUVP5HCxDMyWKqk
+
 ```
-
-The `xprv` and `xpub` for the HD prefixes `m/44'/5'/0'/0` and `m/44'/5'/2'/1`
-are:
-
-```sh
-# m/44'/5'/0'/0
-xprvA1WUDWFxdE5UGW1XNTnkZnd3K6bdidZBTtzvtEQziBpS3N8tajC4QKyRLmas7DK4HXK76wSXgMV1uV6RbKyM5f4uu1VmguEhAqvzQwr2mrC
-
-xpub6EVpd1nrTbdmUz5zUVKkvvZms8S886H2q7vXgcpcGXMQvAU38GWJx8HuC28Bm8Cizq7dHJvL6armkvL7vvxRpxUxAmpVQF6s8aq5BRBCMrD
-```
-
-```sh
-# m/44'/5'/2'/1
-xprvA1UUAiR2AFvujb6WyC4TSokLBR48hKSqczH9MZfBXoBUztPnsvWByTuVs5GvmbySGjZ95mZtBMv3p3eBPJFFi4efT8azWz8v5zqVT2dFm6Z
-
-xpub6ETpaDwuzdVCx5Az5DbTowh4jStd6nAgzDCk9x4o68iTsgiwRTpSXGDyiNDf9dSC75MLM6wTmfcUntPgNFYZ728zZ84Wb3xs43C8YrGZoap
-```
-
-Given the HD paths `m/44'/5'/0'/0/0` and `m/44'/5'/2'/1/2`, that seed will
-produce these WIFs (Private Keys) and Pay Addresses (PubKey Hashes).
-
-```txt
-                 (account 0, external/receiving, address 0)
-m/44'/5'/0'/0/0: XKHiWYkmDkNnWGP756UCGcuZ21mHGeYdWeCBBHCBGZaf3NYw1SAz (WIF)
-                 XjxyR1gve94LuKqkMLEeqJbEVM5B5q1ZSx                   (Addr)
-m/44'/5'/0'/0/1: XCsy8Qw1fLH7C1UxLjBfTfLpn8DMRK1TMNNE2a5J1F4TyE5UApcK
-                 XxRrwh1xBWig9rfLyiy494u2vj6YXQMsH7
-
-                 (account 2, internal/change, address 2)
-m/44'/5'/2'/1/2: XBwqVpx9SLtvoscmLgC2AtXoKZi5FxYKtYbPGTyjzsKBxsfAxrmy (WIF)
-                 XhWFxtNSqwTqLYAQ9XQJbfQG3Hj64qLoGt                   (Addr)
-```
-
-**Misnomer Alert**: The so-called "secret" is actually a pbkdf2 _salt_, yet it's
-sometimes also referred to as a "passphrase" or "password"... oh well 🤷‍♂️.
 
 ## More Fixtures
 
-See [FIXTURES.md](./FIXTURES.md).
+See also:
+
+- [FIXTURES.md](./FIXTURES.md)
+
+# Glossary
+
+If you're new to all this, check out these glossaries:
+
+- [Dash HD: Glossary](https://github.com/dashhive/DashHD.js#glossary)
+- [Dash Tools: Glossary](https://github.com/dashhive/dash-tools#glossary)
+
+# LICENSE
+
+MIT License
+
+Copyright 2023 Dash Incubator \
+Copyright 2023 AJ ONeal
