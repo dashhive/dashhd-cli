@@ -1,8 +1,8 @@
-*.wif
-*.txt
-*.hex
-*.bin
-*.addr
+/*.wif
+/*.txt
+/*.hex
+/*.bin
+/*.addr
 
 # Logs
 logs
