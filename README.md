@@ -64,14 +64,14 @@ XrZJJfEKRNobcuwWKTD3bDu8ou7XSWPbc9
 # Install
 
 ```sh
-npm install --location=global dashhd
+npm install --location=global dashhd-cli@1
 dashhd ./seed.hex "0'/0"
 ```
 
 Or, use without installing:
 
 ```sh
-npx -p dashhd dashhd ./seed.hex "0'/0"
+npx -p dashhd-cli dashhd ./seed.hex "0'/0"
 ```
 
 # Usage
