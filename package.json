@@ -1,6 +1,6 @@
 {
   "name": "dashhd-cli",
-  "version": "0.3.1",
+  "version": "1.0.0",
   "description": "Browser, Node, Bundler, and CLI compatible Dash HD Wallet tools",
   "main": "./bin/dashhd.js",
   "bin": {
