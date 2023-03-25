@@ -1,9 +1,15 @@
-# [dashhd-cli](https://github.com/dashhive/dashhd-cli)
+# [dashhd-cli][dashhd-cli]
 
 Commandline utility to traverse HD Keys from HD Wallet Seed and Extended (xprv,
 xpub) Key Paths. \
 (compatible with the [Hierarchical Deterministic Keys (BIP-44)][bip-44] and [BIP-32][bip-32]
 specs)
+
+[dashhd-cli]: https://github.com/dashhive/dashhd-cli
+[dashphrase-cli]: https://github.com/dashhive/dashphrase-cli
+[dashphrase-js]: https://github.com/dashhive/dashphrase.js
+[bip-44]: https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
+[bip-32]: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
 
 > A fully-functional, production-ready reference implementation of Dash HD -
 > suitable for learning DASH specs and protocols, and porting to other
@@ -77,7 +83,7 @@ npx -p dashhd-cli dashhd ./seed.hex "0'/0"
 # Usage
 
 **Note**: Convert _Recovery Phrases_ to _Seeds_ with
-[`dashphrase`](https://github.com/dashhive/dashphrase.js).
+[`dashphrase`][dashphrase-js].
 
 Also, **all example values** below are derived from the _Zoomonic Seed_:
 
@@ -135,7 +141,7 @@ See also:
 ## Wallet Seed to Extended Keys
 
 1. Convert your _Recovery Phrase_ to a _Seed_ with
-   [DashPhrase](https://github.com/dashhive/dashphrase-cli)
+   [DashPhrase][dashphrase-cli]
 2. Derive Extended Keys for Account at index 2:
    ```sh
    # dashhd ./seed.hex       "/<account>'/<use>"
@@ -166,7 +172,7 @@ dashhd ./seed.hex          "0'/0" "5'/0"
 ## Wallet Seed to Address Keys
 
 1. Convert your _Recovery Phrase_ to a _Seed_ with
-   [DashPhrase](https://github.com/dashhive/dashphrase-cli)
+   [DashPhrase][dashphrase-cli]
 2. Derive Address Keys for Address 3 of Account 2 (0-indexed):
    ```sh
    # dashhd ./seed.hex       "/<account>'/<use>/<index>"
